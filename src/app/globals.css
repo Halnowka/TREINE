@@ -1,0 +1,117 @@
+/* Temporary change to update commit message */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 3.9%; /* #0A0A0A */
+    --foreground: 0 0% 98%; /* Basically white */
+
+    --card: 0 0% 8%; /* Slightly lighter than background, e.g., #141414 */
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 6%; /* Dark popover */
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 0% 80%; /* #CCCCCC Light gray for interactive elements */
+    --primary-foreground: 0 0% 10%; /* Dark text on primary elements */
+
+    --secondary: 0 0% 14.9%; /* Dark secondary */
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 0 0% 12%; /* Darker muted */
+    --muted-foreground: 0 0% 60%; /* Lighter muted text */
+
+    --accent: 0 0% 74.1%; /* #BDBDBD Slightly lighter gray for highlight */
+    --accent-foreground: 0 0% 10%; /* Dark text on accent elements */
+
+    --destructive: 0 62.8% 30.6%; /* Default dark destructive */
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 20%; /* Slightly more visible border on dark */
+    --input: 0 0% 14.9%; /* Dark input background */
+    --ring: 0 0% 80%; /* Primary color for focus rings */
+
+    --radius: 0rem;
+
+    /* Chart colors (using defaults, can be adjusted if charts are added) */
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+
+    /* Sidebar specific colors (keeping defaults, may not be used) */
+    --sidebar-background: 0 0% 6%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 0 0% 80%;
+    --sidebar-primary-foreground: 0 0% 10%;
+    --sidebar-accent: 0 0% 74.1%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 0 0% 80%;
+  }
+
+  /* Explicitly set dark theme as default for Kinetic Tracker */
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 6%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 80%;
+    --primary-foreground: 0 0% 10%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 0 0% 74.1%;
+    --accent-foreground: 0 0% 10%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 20%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 80%;
+    
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+
+    --sidebar-background: 0 0% 6%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 0 0% 80%;
+    --sidebar-primary-foreground: 0 0% 10%;
+    --sidebar-accent: 0 0% 74.1%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 0 0% 80%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* Ensure the Roboto Mono font from layout.tsx is applied */
+    font-family: var(--font-roboto-mono), monospace;
+  }
+
+  .day-push:not([aria-selected]) {
+    background-color: hsl(220 70% 50% / 0.2) !important;
+    color: hsl(220 90% 80%);
+  }
+  .day-pull:not([aria-selected]) {
+    background-color: hsl(40 80% 55% / 0.2) !important;
+    color: hsl(40 90% 80%);
+  }
+  .day-rest:not([aria-selected]) {
+    background-color: hsl(var(--muted) / 0.5) !important;
+    color: hsl(var(--muted-foreground));
+  }
+}
