@@ -3,6 +3,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import { WeightTracker } from './WeightTracker';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface HeaderProps {
   onMenuToggle: () => void;
@@ -12,7 +14,9 @@ interface HeaderProps {
 }
 
 export function Header({ onMenuToggle, onCatClick, isMenuOpen, onPositionChange }: HeaderProps) {
+  const { user, username } = useAuth();
   const [frame, setFrame] = useState(0);
+  const [currentTime, setCurrentTime] = useState(new Date());
   const tailFrames = ['ノ', '_ヽ', '__'];
   const hamburgerRef = useRef<HTMLButtonElement>(null);
 
@@ -33,6 +37,14 @@ export function Header({ onMenuToggle, onCatClick, isMenuOpen, onPositionChange 
   }, [frame]);
 
   useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     if (isMenuOpen && hamburgerRef.current) {
       const rect = hamburgerRef.current.getBoundingClientRect();
       onPositionChange({ top: rect.top, right: rect.right });
@@ -43,26 +55,42 @@ export function Header({ onMenuToggle, onCatClick, isMenuOpen, onPositionChange 
 
   return (
     <header className="z-30 mb-0 grid grid-cols-3 items-center relative p-2 md:p-4">
-      <div 
-        onClick={onCatClick} 
-        className="justify-self-start cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" 
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onCatClick(); }}
-        aria-label="toggle rest timer"
-      >
-        <pre className="text-muted-foreground text-xs leading-tight select-none">
+      <div className="justify-self-start flex items-center gap-4">
+        <div
+          onClick={onCatClick}
+          className="cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onCatClick(); }}
+          aria-label="toggle rest timer"
+        >
+          <pre className="text-muted-foreground text-xs leading-tight select-none">
 {`  l、
 （ﾟ､ ｡ ７
   l  ~ヽ
   じしf_,)${tail}`}
-        </pre>
+          </pre>
+        </div>
+
+        {user && (
+          <div className="flex flex-col items-start gap-1 glitch-text-container">
+            <div className="flex items-baseline justify-between w-full">
+              <div className="text-primary font-medium text-sm lowercase">
+                {username}
+              </div>
+              <div className="text-muted-foreground text-[10px] font-mono">
+                {currentTime.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} {currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </div>
+            </div>
+            <WeightTracker />
+          </div>
+        )}
       </div>
-      
+
       <h1 className="text-4xl font-headline font-bold text-primary justify-self-center">
         TREINE
       </h1>
-      
+
       <button
         ref={hamburgerRef}
         onClick={onMenuToggle}

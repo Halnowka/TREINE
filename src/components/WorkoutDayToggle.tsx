@@ -3,7 +3,7 @@
 
 import type { WorkoutType } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Sparkle, Repeat } from 'lucide-react';
+import { Sparkle, Target, Trophy } from 'lucide-react';
 import type { SVGProps } from 'react';
 
 interface WorkoutDayToggleProps {
@@ -75,7 +75,7 @@ export function WorkoutDayToggle({ selectedDay, onSelectDay }: WorkoutDayToggleP
         }`}
         aria-pressed={selectedDay === 'russian'}
       >
-        <Repeat className="mr-2 h-5 w-5" /> russian program
+        <Target className="mr-2 h-5 w-5" /> russian program
       </Button>
     </div>
   );
