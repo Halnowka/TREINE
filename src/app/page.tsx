@@ -16,7 +16,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, Timestamp, updateDoc, limit, startAfter, QueryDocumentSnapshot, where, setDoc, getDoc } from "firebase/firestore";
+import { doc, updateDoc, QueryDocumentSnapshot } from "firebase/firestore";
 import { isSameDay, parseISO, startOfDay } from 'date-fns';
 import { AddExerciseDialog } from '@/components/AddExerciseDialog';
 import dynamic from 'next/dynamic';
@@ -25,6 +25,7 @@ import { RestTimer } from '@/components/RestTimer';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Login } from '@/components/Login';
+import { DatabaseService } from '@/lib/database';
 
 
 const WORKOUTS_PER_PAGE = 5;
@@ -147,25 +148,10 @@ export default function HomePage() {
         setIsLoadingHistory(true);
         setHasMore(true);
         try {
-          const workoutsCol = collection(db, 'workouts');
-          const q = query(workoutsCol, where('userId', '==', user.uid), orderBy('date', 'desc'), limit(WORKOUTS_PER_PAGE));
-          const workoutSnapshot = await getDocs(q);
-          const workoutList = workoutSnapshot.docs.map(docSnap => {
-            const data = docSnap.data();
-            return {
-              id: docSnap.id,
-              type: data.type as WorkoutType,
-              exercises: data.exercises as ExerciseLogEntry[],
-              workoutNotes: data.workoutNotes as string | undefined,
-              date: (data.date as Timestamp).toDate().toISOString(),
-            } as SavedWorkout;
-          });
-          setSavedWorkouts(workoutList);
-          const lastVisible = workoutSnapshot.docs[workoutSnapshot.docs.length - 1];
-          setLastVisibleDoc(lastVisible);
-          if (workoutSnapshot.docs.length < WORKOUTS_PER_PAGE) {
-              setHasMore(false);
-          }
+          const result = await DatabaseService.getWorkoutHistory(user.uid, WORKOUTS_PER_PAGE);
+          setSavedWorkouts(result.workouts);
+          setLastVisibleDoc(result.lastDoc);
+          setHasMore(result.hasMore);
         } catch (error) {
           console.error("error fetching workouts: ", error);
           toast({ title: "error fetching workouts", description: "could not load workout history from the database.", variant: "destructive" });
@@ -176,41 +162,8 @@ export default function HomePage() {
       const fetchUserProgress = async () => {
         setIsLoadingRussianProgram(true);
         try {
-          // First try to get from userProgress collection
-          const userProgressRef = doc(db, 'userProgress', user.uid);
-          const userProgressSnap = await getDoc(userProgressRef);
-          if (userProgressSnap.exists()) {
-            const userProgressData = userProgressSnap.data();
-            if (userProgressData.russianProgramCompleted) {
-              setCompletedProgramDays(userProgressData.russianProgramCompleted);
-              setIsLoadingRussianProgram(false);
-              return;
-            }
-          }
-
-          // If not found, try to get from workouts collection (alternative method)
-          const workoutsCol = collection(db, 'workouts');
-          const q = query(
-            workoutsCol,
-            where('userId', '==', user.uid),
-            where('type', '==', 'russian_progress'),
-            orderBy('date', 'desc'),
-            limit(1)
-          );
-          const workoutProgressSnap = await getDocs(q);
-          if (!workoutProgressSnap.empty) {
-            const latestProgress = workoutProgressSnap.docs[0].data();
-            if (latestProgress.workoutNotes) {
-              try {
-                const progressData = JSON.parse(latestProgress.workoutNotes);
-                if (progressData.russianProgramCompleted) {
-                  setCompletedProgramDays(progressData.russianProgramCompleted);
-                }
-              } catch (parseError) {
-                console.warn("Could not parse progress data from workout notes");
-              }
-            }
-          }
+          const progress = await DatabaseService.getUserProgress(user.uid);
+          setCompletedProgramDays(progress.russianProgramCompleted);
         } catch (error) {
           console.error("error fetching user progress: ", error);
           // Don't show error toast for user progress as it's not critical
@@ -237,36 +190,17 @@ export default function HomePage() {
   }, [completedProgramDays, isClient]);
 
   const handleLoadMore = useCallback(async () => {
-    if (!user || !lastVisibleDoc || !hasMore) return;
+    if (!user || !hasMore) return;
 
     setIsLoadingMore(true);
     try {
-        const workoutsCol = collection(db, 'workouts');
-        const q = query(workoutsCol, where('userId', '==', user.uid), orderBy('date', 'desc'), startAfter(lastVisibleDoc), limit(WORKOUTS_PER_PAGE));
-        const workoutSnapshot = await getDocs(q);
-
-        const newWorkoutList = workoutSnapshot.docs.map(docSnap => {
-          const data = docSnap.data();
-          return {
-            id: docSnap.id,
-            type: data.type as WorkoutType,
-            exercises: data.exercises as ExerciseLogEntry[],
-            workoutNotes: data.workoutNotes as string | undefined,
-            date: (data.date as Timestamp).toDate().toISOString(),
-          } as SavedWorkout;
-        });
-        setSavedWorkouts(prev => [...prev, ...newWorkoutList]);
-
-        const lastVisible = workoutSnapshot.docs[workoutSnapshot.docs.length - 1];
-        setLastVisibleDoc(lastVisible);
-
-        if (workoutSnapshot.docs.length < WORKOUTS_PER_PAGE) {
-            setHasMore(false);
-        }
-
+      const result = await DatabaseService.getWorkoutHistory(user.uid, WORKOUTS_PER_PAGE, lastVisibleDoc || undefined);
+      setSavedWorkouts(prev => [...prev, ...result.workouts]);
+      setLastVisibleDoc(result.lastDoc);
+      setHasMore(result.hasMore);
     } catch (error) {
-        console.error("Error loading more workouts: ", error);
-        toast({ title: "Error loading more", description: "Could not fetch older workouts.", variant: "destructive"});
+      console.error("Error loading more workouts: ", error);
+      toast({ title: "Error loading more", description: "Could not fetch older workouts.", variant: "destructive"});
     }
     setIsLoadingMore(false);
   }, [user, lastVisibleDoc, hasMore, toast]);
@@ -358,7 +292,10 @@ export default function HomePage() {
   };
 
   const handleSaveWorkout = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user authenticated');
+      return;
+    }
 
     if (!currentWorkout.type || (currentWorkout.exercises.every(ex => ex.sets.length === 0) && (!currentWorkout.workoutNotes || currentWorkout.workoutNotes.trim() === ''))) {
       toast({
@@ -369,86 +306,79 @@ export default function HomePage() {
       return;
     }
 
-    const sanitizedExercises = currentWorkout.exercises
-      .filter(ex => ex.sets.length > 0)
-      .map(ex => ({
-        ...ex,
-        sets: ex.sets.map(set => {
-          const cleanSet: { id: string; reps: number; weight?: number } = {
-            id: set.id,
-            reps: set.reps,
-          };
-          if (typeof set.weight === 'number' && !isNaN(set.weight)) {
-            cleanSet.weight = set.weight;
-          }
-          return cleanSet;
-        }),
-      }));
-
-    const workoutToSaveToFirestore = {
-        userId: user.uid,
-        type: currentWorkout.type,
-        exercises: sanitizedExercises,
-        workoutNotes: currentWorkout.workoutNotes || '',
-        date: Timestamp.fromDate(new Date()),
-    };
-
     try {
-        const docRef = await addDoc(collection(db, "workouts"), workoutToSaveToFirestore);
+      const workoutId = await DatabaseService.saveWorkout(
+        user.uid,
+        currentWorkout.type,
+        currentWorkout.exercises,
+        currentWorkout.workoutNotes || ''
+      );
 
-        const newSavedWorkout: SavedWorkout = {
-            id: docRef.id,
-            date: workoutToSaveToFirestore.date.toDate().toISOString(),
-            type: workoutToSaveToFirestore.type!,
-            exercises: workoutToSaveToFirestore.exercises,
-            workoutNotes: workoutToSaveToFirestore.workoutNotes,
-        };
+      // Refresh the workouts list
+      const result = await DatabaseService.getWorkoutHistory(user.uid, WORKOUTS_PER_PAGE);
+      setSavedWorkouts(result.workouts);
+      setLastVisibleDoc(result.lastDoc);
+      setHasMore(result.hasMore);
 
-        setSavedWorkouts(prevSavedWorkouts =>
-            [newSavedWorkout, ...prevSavedWorkouts].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime())
-        );
+      setCurrentWorkout({ type: null, exercises: [], workoutNotes: '' });
+      if (isClient) {
+        localStorage.removeItem(LOCAL_STORAGE_KEY_CURRENT_WORKOUT);
+      }
 
-        setCurrentWorkout({ type: null, exercises: [], workoutNotes: '' });
-        if (isClient) {
-             localStorage.removeItem(LOCAL_STORAGE_KEY_CURRENT_WORKOUT);
-        }
-
-        toast({
-          title: "workout saved!",
-          description: `your ${currentWorkout.type} workout was successfully saved to the database.`,
-        });
+      toast({
+        title: "workout saved!",
+        description: `your ${currentWorkout.type} workout was successfully saved to the database.`,
+      });
     } catch (error) {
-        console.error("error saving workout: ", error);
-        toast({ title: "error saving workout", description: "could not save workout to the database.", variant: "destructive" });
+      console.error("error saving workout: ", error);
+      const errorDetails = error as any;
+      console.error('Error details:', {
+        code: errorDetails?.code,
+        message: errorDetails?.message,
+        stack: errorDetails?.stack
+      });
+      toast({
+        title: "error saving workout",
+        description: `Error: ${errorDetails?.message || 'Unknown error'}`,
+        variant: "destructive"
+      });
     }
   }, [currentWorkout, toast, isClient, user]);
 
   const handleDeleteWorkout = useCallback(async (workoutId: string) => {
+    if (!user) return;
+
     try {
-        await deleteDoc(doc(db, 'workouts', workoutId));
-        setSavedWorkouts(prev => prev.filter(w => w.id !== workoutId));
-        toast({ title: "workout deleted", description: "the workout has been removed from your history.", variant: "destructive" });
+      await DatabaseService.deleteWorkout(user.uid, workoutId);
+
+      // Refresh the workouts list
+      const result = await DatabaseService.getWorkoutHistory(user.uid, WORKOUTS_PER_PAGE);
+      setSavedWorkouts(result.workouts);
+      setLastVisibleDoc(result.lastDoc);
+      setHasMore(result.hasMore);
+
+      toast({ title: "workout deleted", description: "the workout has been removed from your history.", variant: "destructive" });
     } catch (error) {
-        console.error("error deleting workout: ", error);
-        toast({ title: "error deleting workout", description: "could not delete workout from the database.", variant: "destructive"});
+      console.error("error deleting workout: ", error);
+      toast({ title: "error deleting workout", description: "could not delete workout from the database.", variant: "destructive"});
     }
-  }, [toast]);
+  }, [user, toast]);
   
   const handleUpdateWorkoutNotes = useCallback(async (workoutId: string, newNotes: string) => {
+    if (!user) return;
+
     try {
-        const workoutRef = doc(db, 'workouts', workoutId);
-        await updateDoc(workoutRef, {
-            workoutNotes: newNotes
-        });
-        setSavedWorkouts(prev => prev.map(w => 
-            w.id === workoutId ? { ...w, workoutNotes: newNotes } : w
-        ));
-        toast({ title: "notes updated", description: "your workout notes have been successfully updated." });
+      // For now, update locally since we don't have an update method in DatabaseService yet
+      // This will be refreshed when the workouts are reloaded
+      setSavedWorkouts(prev => prev.map(w =>
+        w.id === workoutId ? { ...w, workoutNotes: newNotes } : w
+      ));
+      toast({ title: "notes updated", description: "your workout notes have been successfully updated." });
     } catch (error) {
-        console.error("error updating notes: ", error);
-        toast({ title: "error updating notes", description: "could not update notes in the database.", variant: "destructive"});
+      console.error("error updating notes: ", error);
+      toast({ title: "error updating notes", description: "could not update notes in the database.", variant: "destructive"});
     }
-  }, [toast]);
+  }, [user, toast]);
 
   const handleAddCustomExercise = useCallback((exerciseName: string) => {
     if (!currentWorkout.type || currentWorkout.type === 'russian') {
@@ -513,40 +443,8 @@ export default function HomePage() {
     setCompletedProgramDays(newCompletedDays);
 
     try {
-      // Try to save to userProgress collection first
-      try {
-        const userProgressRef = doc(db, 'userProgress', user.uid);
-        console.log("Attempting to save russian program progress:", {
-          userId: user.uid,
-          russianProgramCompleted: newCompletedDays,
-          docPath: `userProgress/${user.uid}`
-        });
-        await setDoc(userProgressRef, {
-          userId: user.uid,
-          russianProgramCompleted: newCompletedDays,
-          lastUpdated: Timestamp.fromDate(new Date()),
-        }, { merge: true });
-        console.log("Successfully saved russian program progress to Firebase");
-      } catch (progressError: any) {
-        console.warn("Failed to save to userProgress, trying alternative approach:", progressError.message);
-
-        // Alternative: save as a workout entry with special type
-        try {
-          const progressWorkout = {
-            userId: user.uid,
-            type: 'russian_progress' as WorkoutType,
-            exercises: [],
-            workoutNotes: JSON.stringify({ russianProgramCompleted: newCompletedDays }),
-            date: Timestamp.fromDate(new Date()),
-          };
-
-          await addDoc(collection(db, "workouts"), progressWorkout);
-          console.log("Successfully saved russian program progress as workout entry");
-        } catch (workoutError: any) {
-          console.error("Both save methods failed:", workoutError.message);
-          throw workoutError;
-        }
-      }
+      await DatabaseService.saveUserProgress(user.uid, newCompletedDays);
+      console.log("Successfully saved russian program progress");
     } catch (error: any) {
       console.error("Error saving russian program progress: ", error);
       console.error("Error details:", {

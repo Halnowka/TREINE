@@ -35,7 +35,7 @@ export function RestTimer({ isOpen, onOpenChange }: RestTimerProps) {
 
   useEffect(() => {
     if (!activeTimer) {
-      setSeconds(timerConfig[activeTimer as keyof typeof timerConfig]?.duration || 0);
+      setSeconds(0);
       return;
     }
 
