@@ -54,8 +54,9 @@ export function Header({ onMenuToggle, onCatClick, isMenuOpen, onPositionChange 
   const tail = tailFrames[frame];
 
   return (
-    <header className="z-30 mb-0 grid grid-cols-3 items-center relative p-2 md:p-4">
-      <div className="justify-self-start flex items-center gap-4">
+    <header className="z-30 mb-0 flex items-center relative p-2 md:p-4">
+      {/* Left side - cat + user data */}
+      <div className="flex items-center gap-4 flex-shrink-0 min-w-0">
         <div
           onClick={onCatClick}
           className="cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -73,12 +74,12 @@ export function Header({ onMenuToggle, onCatClick, isMenuOpen, onPositionChange 
         </div>
 
         {user && (
-          <div className="flex flex-col items-start gap-1 glitch-text-container">
-            <div className="flex items-baseline justify-between w-full">
-              <div className="text-primary font-medium text-sm lowercase">
+          <div className="flex flex-col items-start gap-1 glitch-text-container min-w-0">
+            <div className="flex items-baseline justify-between w-full min-w-0">
+              <div className="text-primary font-medium text-sm lowercase truncate">
                 {username}
               </div>
-              <div className="text-muted-foreground text-[10px] font-mono">
+              <div className="text-muted-foreground text-[10px] font-mono flex-shrink-0 ml-2">
                 {currentTime.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} {currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </div>
             </div>
@@ -87,14 +88,16 @@ export function Header({ onMenuToggle, onCatClick, isMenuOpen, onPositionChange 
         )}
       </div>
 
-      <h1 className="text-4xl font-headline font-bold text-primary justify-self-center">
+      {/* Center - TREINE title with flex-1 to take available space */}
+      <h1 className="text-4xl font-headline font-bold text-primary flex-1 text-center mx-4">
         TREINE
       </h1>
 
+      {/* Right side - hamburger menu */}
       <button
         ref={hamburgerRef}
         onClick={onMenuToggle}
-        className="p-2 text-primary hover:text-accent transition-all justify-self-end relative z-50"
+        className="p-2 text-primary hover:text-accent transition-all flex-shrink-0 relative z-50"
         aria-label="toggle navigation menu"
       >
         <div className={`hamburger ${isMenuOpen ? 'open' : ''}`}>
