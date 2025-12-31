@@ -54,7 +54,7 @@ export function Header({ onMenuToggle, onCatClick, isMenuOpen, onPositionChange 
   const tail = tailFrames[frame];
 
   return (
-    <header className="z-30 mb-0 flex items-center relative p-2 md:p-4">
+    <header className="z-30 mb-0 flex items-center relative p-2 md:p-4 justify-between">
       {/* Left side - cat + user data */}
       <div className="flex items-center gap-4 flex-shrink-0 min-w-0">
         <div
@@ -88,8 +88,8 @@ export function Header({ onMenuToggle, onCatClick, isMenuOpen, onPositionChange 
         )}
       </div>
 
-      {/* Center - TREINE title with flex-1 to take available space */}
-      <h1 className="text-4xl font-headline font-bold text-primary flex-1 text-center mx-4">
+      {/* Center - TREINE title - centralizado apenas no desktop */}
+      <h1 className="text-4xl font-headline font-bold text-primary md:absolute md:left-1/2 md:transform md:-translate-x-1/2 md:top-1/2 md:-translate-y-1/2">
         TREINE
       </h1>
 
