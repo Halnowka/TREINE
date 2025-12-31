@@ -14,6 +14,11 @@ const robotoMono = Roboto_Mono({
 export const metadata: Metadata = {
   title: 'TREINE',
   description: 'track your push and pull day workouts.',
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/apple-touch-icon.png',
+  },
 };
 
 export default function RootLayout({
