@@ -73,6 +73,13 @@ export const FirestoreUserProgressSchema = z.object({
   lastUpdated: z.any().optional(), // Firestore Timestamp
 });
 
+export const FirestoreCustomExercisesSchema = z.object({
+  userId: z.string(),
+  workoutType: WorkoutTypeSchema,
+  exercises: z.array(ExerciseDefinitionSchema),
+  lastUpdated: z.any(), // Firestore Timestamp
+});
+
 // Type exports
 export type WorkoutType = z.infer<typeof WorkoutTypeSchema>;
 export type TimerType = z.infer<typeof TimerTypeSchema>;

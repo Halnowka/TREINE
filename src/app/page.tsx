@@ -212,12 +212,14 @@ export default function HomePage() {
     }
   }, [currentWorkout, isClient]);
 
-  const handleSelectDay = useCallback((newDay: WorkoutType) => {
+  const handleSelectDay = useCallback(async (newDay: WorkoutType) => {
+    if (!user) return;
+
     if (newDay === 'russian') {
       setCurrentWorkout({ type: 'russian', exercises: [], workoutNotes: '' });
       return;
     }
-    
+
     const isSameDay = currentWorkout.type === newDay;
     const hasExistingProgress =
       currentWorkout.exercises.some(ex => ex.sets.length > 0) ||
@@ -225,42 +227,66 @@ export default function HomePage() {
 
     if (!isSameDay && hasExistingProgress) {
       if (!confirm("you have unsaved progress (sets or notes). changing workout type will clear it. continue?")) {
-        return; 
+        return;
       }
     }
 
-    const exercisesForDay: ExerciseDefinition[] = newDay === 'push' ? PUSH_DAY_EXERCISES : PULL_DAY_EXERCISES;
-    
-    if (!isSameDay) {
-        setCurrentWorkout({
-          type: newDay,
-          exercises: exercisesForDay.map(ex => ({
-            exerciseId: ex.id,
-            exerciseName: ex.name,
-            sets: [], 
-          })),
-          workoutNotes: '',
-        });
-        toast({ title: "workout started", description: `selected ${newDay} day. let's go!` });
-    } else { 
-        const existingProgress = new Map<string, ExerciseLogEntry>();
-        currentWorkout.exercises.forEach(ex => {
-            existingProgress.set(ex.exerciseId, ex);
-        });
+    try {
+      // Load custom exercises for this workout type
+      const customExercises = await DatabaseService.getCustomExercises(user.uid, newDay);
+      const baseExercises: ExerciseDefinition[] = newDay === 'push' ? PUSH_DAY_EXERCISES : PULL_DAY_EXERCISES;
+      const allExercises = [...baseExercises, ...customExercises];
 
-        const newBaseExercises = exercisesForDay.map(exDef => 
-            existingProgress.get(exDef.id) || { exerciseId: exDef.id, exerciseName: exDef.name, sets: [] }
-        );
-
-        const customExercises = currentWorkout.exercises.filter(ex => ex.exerciseId.startsWith('custom-'));
-        
-        setCurrentWorkout(prev => ({
-            ...prev,
+      if (!isSameDay) {
+          setCurrentWorkout({
             type: newDay,
-            exercises: [...newBaseExercises, ...customExercises],
-        }));
+            exercises: allExercises.map(ex => ({
+              exerciseId: ex.id,
+              exerciseName: ex.name,
+              sets: [],
+            })),
+            workoutNotes: '',
+          });
+          toast({ title: "workout started", description: `selected ${newDay} day. let's go!` });
+      } else {
+          const existingProgress = new Map<string, ExerciseLogEntry>();
+          currentWorkout.exercises.forEach(ex => {
+              existingProgress.set(ex.exerciseId, ex);
+          });
+
+          const newBaseExercises = allExercises.map(exDef =>
+              existingProgress.get(exDef.id) || { exerciseId: exDef.id, exerciseName: exDef.name, sets: [] }
+          );
+
+          const customExercisesFromCurrent = currentWorkout.exercises.filter(ex =>
+            ex.exerciseId.startsWith('custom-') && !allExercises.some(baseEx => baseEx.id === ex.exerciseId)
+          );
+
+          setCurrentWorkout(prev => ({
+              ...prev,
+              type: newDay,
+              exercises: [...newBaseExercises, ...customExercisesFromCurrent],
+          }));
+      }
+    } catch (error) {
+      console.error("error loading custom exercises: ", error);
+      // Fallback to default exercises if custom exercises fail to load
+      const exercisesForDay: ExerciseDefinition[] = newDay === 'push' ? PUSH_DAY_EXERCISES : PULL_DAY_EXERCISES;
+
+      if (!isSameDay) {
+          setCurrentWorkout({
+            type: newDay,
+            exercises: exercisesForDay.map(ex => ({
+              exerciseId: ex.id,
+              exerciseName: ex.name,
+              sets: [],
+            })),
+            workoutNotes: '',
+          });
+          toast({ title: "workout started", description: `selected ${newDay} day. let's go!` });
+      }
     }
-  }, [currentWorkout, toast]);
+  }, [currentWorkout, toast, user]);
 
 
   const handleUpdateExerciseLog = useCallback((updatedLog: ExerciseLogEntry) => {
@@ -380,27 +406,66 @@ export default function HomePage() {
     }
   }, [user, toast]);
 
-  const handleAddCustomExercise = useCallback((exerciseName: string) => {
-    if (!currentWorkout.type || currentWorkout.type === 'russian') {
+  const handleAddCustomExercise = useCallback(async (exerciseName: string) => {
+    if (!user || !currentWorkout.type || currentWorkout.type === 'russian') {
         toast({ title: "select a push/pull workout day first", variant: "destructive"});
         return;
     }
-    const newExercise: ExerciseLogEntry = {
-      exerciseId: `custom-${exerciseName.toLowerCase().replace(/\s+/g, '-')}-${crypto.randomUUID()}`,
-      exerciseName: exerciseName,
-      sets: [],
-    };
 
+    try {
+      const newExerciseDefinition = {
+        id: `custom-${exerciseName.toLowerCase().replace(/\s+/g, '-')}-${crypto.randomUUID()}`,
+        name: exerciseName,
+      };
+
+      // Get existing custom exercises and add the new one
+      const existingCustomExercises = await DatabaseService.getCustomExercises(user.uid, currentWorkout.type);
+      const updatedCustomExercises = [...existingCustomExercises, newExerciseDefinition];
+
+      // Save to database
+      await DatabaseService.saveCustomExercises(user.uid, currentWorkout.type, updatedCustomExercises);
+
+      // Add to current workout
+      const newExerciseLogEntry: ExerciseLogEntry = {
+        exerciseId: newExerciseDefinition.id,
+        exerciseName: exerciseName,
+        sets: [],
+      };
+
+      setCurrentWorkout(prev => ({
+        ...prev,
+        exercises: [...prev.exercises, newExerciseLogEntry],
+      }));
+
+      toast({
+        title: "exercise added",
+        description: `"${exerciseName}" has been added to your workout and saved.`,
+      });
+    } catch (error) {
+      console.error("error adding custom exercise: ", error);
+      toast({
+        title: "error adding exercise",
+        description: "could not save the custom exercise to the database.",
+        variant: "destructive",
+      });
+    }
+  }, [toast, currentWorkout.type, user]);
+
+  const handleDeleteExercise = useCallback((exerciseId: string) => {
     setCurrentWorkout(prev => ({
       ...prev,
-      exercises: [...prev.exercises, newExercise],
+      exercises: prev.exercises.filter(ex => ex.exerciseId !== exerciseId),
     }));
+  }, []);
 
-    toast({
-      title: "exercise added",
-      description: `"${exerciseName}" has been added to your workout.`,
-    });
-  }, [toast, currentWorkout.type]);
+  const handleRenameExercise = useCallback((exerciseId: string, newName: string) => {
+    setCurrentWorkout(prev => ({
+      ...prev,
+      exercises: prev.exercises.map(ex =>
+        ex.exerciseId === exerciseId ? { ...ex, exerciseName: newName } : ex
+      ),
+    }));
+  }, []);
 
   const handleToggleRestDay = useCallback((day: Date) => {
     const dayStart = startOfDay(day);
@@ -629,6 +694,9 @@ export default function HomePage() {
                           exerciseLog={exerciseLog}
                           onUpdateExerciseLog={handleUpdateExerciseLog}
                           onDeleteSet={handleDeleteSet}
+                          onDeleteExercise={handleDeleteExercise}
+                          onRenameExercise={handleRenameExercise}
+                          workoutType={currentWorkout.type === 'push' || currentWorkout.type === 'pull' ? currentWorkout.type : undefined}
                         />
                       ))}
                       {currentWorkout.type && (

@@ -24,6 +24,7 @@ import {
   FirestoreUserProgressSchema,
   SetData,
   ExerciseLogEntry,
+  ExerciseDefinition,
 } from '@/types';
 
 // Collection references
@@ -213,6 +214,37 @@ export class DatabaseService {
 
     await Promise.all(migrationPromises);
     return snapshot.docs.length;
+  }
+
+  // Custom exercises operations
+  static async saveCustomExercises(
+    userId: string,
+    workoutType: 'push' | 'pull',
+    exercises: ExerciseDefinition[]
+  ) {
+    const customExercisesData = {
+      userId,
+      workoutType,
+      exercises,
+      lastUpdated: Timestamp.fromDate(new Date()),
+    };
+
+    const docRef = doc(db, 'users', userId, 'customExercises', workoutType);
+    await setDoc(docRef, customExercisesData, { merge: true });
+  }
+
+  static async getCustomExercises(
+    userId: string,
+    workoutType: 'push' | 'pull'
+  ): Promise<ExerciseDefinition[]> {
+    const docRef = doc(db, 'users', userId, 'customExercises', workoutType);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      return docSnap.data().exercises || [];
+    }
+
+    return [];
   }
 
   // Delete operations
