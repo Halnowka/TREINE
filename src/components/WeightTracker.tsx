@@ -35,9 +35,7 @@ export function WeightTracker({ onWeightUpdate }: WeightTrackerProps) {
     if (!user) return;
 
     try {
-      console.log('🔍 Fetching weight for user:', user.uid);
-
-      // Try a simpler query first to test Firestore access
+      // Fetch weight history to get current and previous weights
       const weightsCol = collection(db, 'weights');
       const q = query(
         weightsCol,
@@ -46,23 +44,14 @@ export function WeightTracker({ onWeightUpdate }: WeightTrackerProps) {
         limit(2)
       );
 
-      console.log('📋 Executing query...');
       const weightSnapshot = await getDocs(q);
-      console.log('📊 Query result - empty:', weightSnapshot.empty, 'size:', weightSnapshot.size);
-
       if (!weightSnapshot.empty) {
-        const weights = weightSnapshot.docs.map(doc => {
-          const data = doc.data();
-          console.log('📄 Weight doc:', doc.id, data);
-          return {
-            id: doc.id,
-            userId: data.userId,
-            weight: data.weight,
-            date: (data.date as Timestamp).toDate().toISOString(),
-          };
-        }) as WeightEntry[];
-
-        console.log('✅ Weights loaded:', weights.length);
+        const weights = weightSnapshot.docs.map(doc => ({
+          id: doc.id,
+          userId: doc.data().userId,
+          weight: doc.data().weight,
+          date: (doc.data().date as Timestamp).toDate().toISOString(),
+        })) as WeightEntry[];
 
         const latestWeight = weights[0];
         const secondLatestWeight = weights[1];
@@ -71,20 +60,10 @@ export function WeightTracker({ onWeightUpdate }: WeightTrackerProps) {
         if (secondLatestWeight) {
           setPreviousWeight(secondLatestWeight.weight);
         }
-
-        console.log('🎯 Current weight set to:', latestWeight.weight);
-      } else {
-        console.log('⚠️ No weight data found for user');
       }
     } catch (error) {
-      console.error('❌ Error fetching weight:', error);
+      console.error('Error fetching weight:', error);
       const errorDetails = error as any;
-      console.error('🔍 Error details:', {
-        code: errorDetails?.code,
-        message: errorDetails?.message,
-        name: errorDetails?.name
-      });
-
       toast({
         title: "error loading weight",
         description: `Could not load weight: ${errorDetails?.message || 'Unknown error'}`,
