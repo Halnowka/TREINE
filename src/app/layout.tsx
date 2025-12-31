@@ -4,6 +4,7 @@ import { Roboto_Mono } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { Providers } from '@/components/Providers';
+import { AnimatedGlobe } from '@/components/AnimatedGlobe';
 
 const robotoMono = Roboto_Mono({
   subsets: ['latin'],
@@ -34,6 +35,7 @@ export default function RootLayout({
           {children}
         </Providers>
         <Toaster />
+        <AnimatedGlobe />
       </body>
     </html>
   );

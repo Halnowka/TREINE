@@ -190,6 +190,20 @@
   }
 }
 
+/* Animated globe rotation */
+@keyframes spin-globe {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.animate-spin-globe {
+  animation: spin-globe linear infinite;
+}
+
 .glitch-weight {
   animation: glitch 5s infinite;
   display: inline-block;
