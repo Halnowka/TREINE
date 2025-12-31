@@ -1,58 +1,16 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
+    // Simple rules for single-user app
+    // Allow full access for authenticated users
+
     function isAuthenticated() {
       return request.auth != null && request.auth.uid != null;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    function isValidUserData() {
-      return request.auth != null &&
-             request.auth.uid == resource.data.userId;
-    }
-
-    // User-specific data - strict access control
-    match /users/{userId} {
-      // Users can only access their own data
-      allow read, write: if isOwner(userId);
-
-      // Subcollections (weights, workouts, progress)
-      match /{document=**} {
-        allow read, write: if isOwner(userId);
-      }
-    }
-
-    // Legacy collections - migrate to user-scoped data
-    // Only allow access to user's own records
-    match /weights/{document} {
-      allow read, write: if isAuthenticated() &&
-        (resource == null || resource.data.userId == request.auth.uid) &&
-        (!request.resource.data.keys().hasAny(['userId']) ||
-         request.resource.data.userId == request.auth.uid);
-    }
-
-    match /workouts/{document} {
-      allow read, write: if isAuthenticated() &&
-        (resource == null || resource.data.userId == request.auth.uid) &&
-        (!request.resource.data.keys().hasAny(['userId']) ||
-         request.resource.data.userId == request.auth.uid);
-    }
-
-    match /userProgress/{document} {
-      allow read, write: if isAuthenticated() &&
-        (resource == null || resource.data.userId == request.auth.uid) &&
-        (!request.resource.data.keys().hasAny(['userId']) ||
-         request.resource.data.userId == request.auth.uid);
-    }
-
-    // Public exercise definitions (read-only for all users)
-    match /exercises/{document} {
-      allow read: if true;
-      allow write: if false;
+    // Allow authenticated users to do anything
+    match /{document=**} {
+      allow read, write: if isAuthenticated();
     }
   }
 }
