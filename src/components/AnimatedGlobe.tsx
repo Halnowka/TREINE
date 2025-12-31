@@ -47,43 +47,46 @@ export function AnimatedGlobe() {
       // Translada para o centro
       ctx.translate(centerX, centerY);
 
-      // Rotação base
+      // Rotação equatorial - como se estivéssemos no plano do equador
       ctx.rotate(rotation);
 
       // Animação de frames - efeito pulsante nas linhas
       const pulseOpacity = (Math.sin(frameTime * 0.01) + 1) * 0.5; // 0-1
 
-      // Desenha linhas de latitude (círculos horizontais) com efeito frame
+      // Desenha linhas de latitude (círculos horizontais) - ESTAS FICAM FIXAS
       for (let i = 1; i <= 5; i++) {
         const latRadius = (i / 6) * radius;
-        const lineOpacity = 0.2 + (pulseOpacity * 0.3) + (i * 0.1);
+        const lineOpacity = 0.3 + (pulseOpacity * 0.2);
 
-        ctx.strokeStyle = `rgba(204, 204, 204, ${Math.min(lineOpacity, 0.8)})`;
-        ctx.lineWidth = 1 + (pulseOpacity * 0.5);
+        ctx.strokeStyle = `rgba(204, 204, 204, ${Math.min(lineOpacity, 0.6)})`;
+        ctx.lineWidth = 1.5;
 
         ctx.beginPath();
         ctx.arc(0, 0, latRadius, 0, Math.PI * 2);
         ctx.stroke();
       }
 
-      // Desenha linhas de longitude com efeito sequencial
+      // Desenha linhas de longitude (linhas verticais/curvas) - ESTAS GIRAM
       for (let i = 0; i < 12; i++) {
-        const angle = (i / 12) * Math.PI * 2;
-        const linePhase = (frameTime * 0.005 + i * 0.5) % (Math.PI * 2);
-        const lineOpacity = 0.3 + (Math.sin(linePhase) + 1) * 0.2;
+        const baseAngle = (i / 12) * Math.PI * 2;
+        // Adiciona rotação equatorial
+        const equatorialAngle = baseAngle + rotation * 0.5;
+
+        const linePhase = (frameTime * 0.008 + i * 0.3) % (Math.PI * 2);
+        const lineOpacity = 0.4 + (Math.sin(linePhase) + 1) * 0.15;
 
         ctx.strokeStyle = `rgba(204, 204, 204, ${Math.min(lineOpacity, 0.7)})`;
-        ctx.lineWidth = 1 + (Math.sin(linePhase) * 0.3);
+        ctx.lineWidth = 1.2;
 
         ctx.beginPath();
 
-        // Cria pontos ao longo da longitude com efeito de onda
-        for (let t = -Math.PI/2; t <= Math.PI/2; t += 0.05) {
-          const waveOffset = Math.sin(t * 3 + frameTime * 0.01) * 5;
-          const x = Math.cos(t) * Math.cos(angle) * radius + waveOffset;
-          const y = Math.sin(t) * radius;
+        // Cria a linha de longitude como um semicírculo (visão equatorial)
+        for (let t = 0; t <= Math.PI; t += 0.05) {
+          // Projeção equatorial: longitude como semicírculo
+          const x = Math.sin(t) * Math.cos(equatorialAngle) * radius;
+          const y = Math.cos(t) * radius;
 
-          if (t === -Math.PI/2) {
+          if (t === 0) {
             ctx.moveTo(x, y);
           } else {
             ctx.lineTo(x, y);
@@ -92,17 +95,25 @@ export function AnimatedGlobe() {
         ctx.stroke();
       }
 
-      // Adiciona efeito de "frame" com linhas radiais
-      for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * Math.PI * 2 + rotation * 2; // Rotação mais rápida
-        const frameOpacity = (Math.sin(frameTime * 0.02 + i) + 1) * 0.15;
+      // Adiciona linhas equatoriais de referência (linhas que "atravessam")
+      for (let i = 0; i < 6; i++) {
+        const angle = (i / 6) * Math.PI * 2 + rotation * 1.5; // Rotação mais rápida
+        const crossOpacity = (Math.sin(frameTime * 0.015 + i * 0.8) + 1) * 0.12;
 
-        ctx.strokeStyle = `rgba(204, 204, 204, ${frameOpacity})`;
-        ctx.lineWidth = 0.5;
+        ctx.strokeStyle = `rgba(204, 204, 204, ${crossOpacity})`;
+        ctx.lineWidth = 0.8;
 
         ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(Math.cos(angle) * radius * 0.8, Math.sin(angle) * radius * 0.8);
+        // Linha equatorial que atravessa
+        ctx.moveTo(-radius * 0.9, 0);
+        ctx.lineTo(radius * 0.9, 0);
+        ctx.moveTo(0, -radius * 0.9);
+        ctx.lineTo(0, radius * 0.9);
+        ctx.stroke();
+
+        // Pequenas marcas equatoriais
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 0.05, 0, Math.PI * 2);
         ctx.stroke();
       }
 
@@ -110,7 +121,7 @@ export function AnimatedGlobe() {
       ctx.restore();
 
       // Incrementa animações
-      rotation += 0.002; // Rotação mais lenta
+      rotation += 0.003; // Rotação equatorial suave
       frameTime += 1;
 
       requestAnimationFrame(animate);
