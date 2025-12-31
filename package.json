@@ -15,7 +15,8 @@
     "migrate-admin": "tsx scripts/migrate-admin.ts",
     "check-user": "tsx scripts/check-user-data.ts",
     "check-old-workouts": "tsx scripts/check-old-workouts.ts",
-    "recover-workouts": "tsx scripts/recover-old-workouts.ts"
+    "recover-workouts": "tsx scripts/recover-old-workouts.ts",
+    "security-check": "node -e \"console.log('🔍 Checking for exposed credentials...'); const fs = require('fs'); const path = require('path'); const checkFile = (filePath) => { try { if (fs.existsSync(filePath)) { const content = fs.readFileSync(filePath, 'utf8'); if (content.includes('AIzaSy') || content.includes('calistenia-98d6b') || content.includes('AIzaSyDYcHeqRVQI-C8gTxkBzjJCA681LVylEDA')) { console.error('❌ Exposed credentials found in:', filePath); process.exit(1); }}} catch (e) {} }; ['src/lib/firebase.ts', 'src/app/layout.tsx', 'src/app/page.tsx'].forEach(checkFile); console.log('✅ No exposed credentials found in client code');\""
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.8.0",
